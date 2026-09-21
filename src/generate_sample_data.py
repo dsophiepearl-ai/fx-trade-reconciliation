@@ -26,10 +26,10 @@ SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCHF"]
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
-def generate_internal_blotter(rng: random.Random) -> pd.DataFrame:
+def generate_internal_blotter(rng: random.Random, n_trades: int = N_TRADES) -> pd.DataFrame:
     base_time = datetime(2026, 9, 18, 7, 0, 0)
     rows = []
-    for i in range(1, N_TRADES + 1):
+    for i in range(1, n_trades + 1):
         symbol = rng.choice(SYMBOLS)
         side = rng.choice(["BUY", "SELL"])
         volume = round(rng.uniform(0.1, 5.0), 2)

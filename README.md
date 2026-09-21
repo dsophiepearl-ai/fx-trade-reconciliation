@@ -2,6 +2,10 @@
 
 I built this to demonstrate one of the most literal responsibilities named in forex Risk Analyst and Trading Operations job postings: "reconcile client funding and liaise with Prime Brokers," and "reconciliation, reporting & analytics." It's a working simulation of the daily check a brokerage runs to confirm its own trade records agree with what the Prime Broker reports.
 
+**Live demo:** _add your link here once deployed — see "Seeing it run" below_
+
+It runs as an interactive dashboard: generate a fresh set of sample trades (or upload your own two files), adjust the matching tolerances, and see the results as live metrics, a chart, and sortable tables — with the same Excel report available as a download at the bottom.
+
 ## The problem this solves
 
 A brokerage keeps its own internal log of every trade it executes — the trade blotter. The Prime Broker it trades through keeps its own separate record of the same activity. In theory these should match perfectly; in practice, timing lags, feed errors, and manual adjustments mean they occasionally don't. If a mismatch goes unnoticed, it can mean the firm is carrying risk it doesn't know about, or that client money isn't properly accounted for. Catching and resolving these breaks — every single trading day — is a core part of a risk or operations desk's job.
@@ -35,6 +39,7 @@ I used configurable tolerances rather than exact matching, because real trade re
 |---|---|
 | Python (pandas for data matching and comparison) | `src/reconcile.py` |
 | Rule-based, tolerance-driven matching logic | `reconcile()` in `src/reconcile.py` |
+| Interactive dashboarding & data visualization | `src/dashboard.py` (Streamlit, Plotly) |
 | Excel report generation with conditional formatting (openpyxl) | `src/report.py` |
 | Designing reproducible test data with deliberate, known-answer breaks | `src/generate_sample_data.py` |
 | Unit testing | `tests/test_reconcile.py` — 9 tests, all passing |
@@ -42,7 +47,7 @@ I used configurable tolerances rather than exact matching, because real trade re
 
 ## Tech stack
 
-Python 3, pandas, openpyxl
+Python 3, pandas, Streamlit, Plotly, openpyxl
 
 ## Project structure
 
@@ -53,6 +58,7 @@ fx-trade-reconciliation/
     generate_sample_data.py     # builds sample data, with breaks deliberately injected
     reconcile.py                 # the matching and classification logic
     report.py                    # builds the color-coded Excel report
+    dashboard.py                  # Streamlit UI
   data/
     internal_blotter.csv         # generated
     prime_broker_statement.csv   # generated
@@ -65,21 +71,32 @@ fx-trade-reconciliation/
 
 Real Prime Broker data isn't something I have access to for a portfolio project, so I wrote a generator that builds a reproducible pair of files with specific breaks planted in them — that way both the tool and the test suite have a known answer to check against, the same way you'd validate any reconciliation logic before trusting it with real data.
 
-If you'd like to see it for yourself:
+**Try it now — no installation needed:** once the app above is deployed, click the live demo link at the top. In the sidebar, pick "Generate sample data" (or upload your own two CSVs), set the tolerances, and click **Run reconciliation** — the metrics, chart, and tables update immediately, and the Excel report is a click away as a download.
+
+If you'd like to run it yourself instead:
 
 ```bash
 git clone https://github.com/dsophiepearl-ai/fx-trade-reconciliation.git
 cd fx-trade-reconciliation
 pip install -r requirements.txt
-python src/generate_sample_data.py
-python main.py
+streamlit run src/dashboard.py
 ```
 
-This produces `reconciliation_report.xlsx` — open it in Excel to see the color-coded output (green for matched, red for missing, amber for a break). The tolerances are adjustable from the command line, for example:
+There's also a plain command-line version for automation or scripting, which does the same reconciliation without the UI:
 
 ```bash
+python src/generate_sample_data.py
 python main.py --price-tolerance-pct 0.05 --volume-tolerance 0.01 --time-tolerance-minutes 10
 ```
+
+## Deploying your own live version
+
+Same process as any Streamlit app:
+
+1. Push this repo to your own GitHub account
+2. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub
+3. Click **New app**, select this repository, branch `main`, and file path `src/dashboard.py`
+4. Click **Deploy**, then add the resulting link to the "Live demo" line at the top of this README
 
 ## Testing it
 
