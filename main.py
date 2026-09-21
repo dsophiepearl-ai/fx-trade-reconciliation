@@ -37,10 +37,35 @@ def main():
 
     write_report(results_df, duplicates_df, args.output)
 
+    print("=" * 64)
+    print("RECONCILIATION SUMMARY")
+    print("=" * 64)
     print(results_df["status"].value_counts().to_string())
+
+    breaks = results_df[results_df["status"] == "break"]
+    if not breaks.empty:
+        print(f"\nBREAKS DETECTED ({len(breaks)}):")
+        print("-" * 64)
+        for _, row in breaks.iterrows():
+            print(f"  {row['trade_id']}: {row['detail']}")
+
+    missing = results_df[results_df["status"].isin(["missing_internal", "missing_external"])]
+    if not missing.empty:
+        print(f"\nMISSING TRADES ({len(missing)}):")
+        print("-" * 64)
+        for _, row in missing.iterrows():
+            side = "Prime Broker" if row["status"] == "missing_external" else "internal blotter"
+            print(f"  {row['trade_id']}: missing from the {side} ({row['status']})")
+
     if not duplicates_df.empty:
-        print(f"\n{len(duplicates_df)} duplicate entr{'y' if len(duplicates_df) == 1 else 'ies'} found.")
-    print(f"\nReport written to {args.output}")
+        print(f"\nDUPLICATE ENTRIES ({len(duplicates_df)}):")
+        print("-" * 64)
+        for _, row in duplicates_df.iterrows():
+            print(f"  {row['detail']}")
+
+    print("\n" + "=" * 64)
+    print(f"Full report (color-coded, with a Summary and Duplicates tab) written to: {args.output}")
+    print("=" * 64)
 
 
 if __name__ == "__main__":
