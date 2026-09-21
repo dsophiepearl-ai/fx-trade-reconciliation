@@ -92,6 +92,24 @@ results_df, duplicates_df = reconcile(
     volume_tolerance=volume_tol,
 )
 
+REQUIRED_RESULT_COLUMNS = [
+    "trade_id", "symbol", "account_id", "status", "detail",
+    "price_internal", "price_external", "price_diff_pct", "price_exceeded",
+    "volume_internal", "volume_external", "volume_diff", "volume_exceeded",
+    "timestamp_internal", "timestamp_external", "time_diff_minutes", "time_exceeded",
+]
+missing_cols = [c for c in REQUIRED_RESULT_COLUMNS if c not in results_df.columns]
+if missing_cols:
+    st.error(
+        "This dashboard expects `reconcile()` to return the columns: "
+        f"{missing_cols}, but they're missing from the result. That almost always means "
+        "`src/reconcile.py` on this deployment is an older version than `src/dashboard.py` — "
+        "double-check that the reconcile.py file in your GitHub repo starts with the docstring "
+        "\"Every row in the returned DataFrame carries the raw internal/external values...\", "
+        "then use **Manage app → Reboot app** on Streamlit Cloud so it picks up the latest files."
+    )
+    st.stop()
+
 counts = results_df["status"].value_counts().to_dict()
 counts["duplicate_entry"] = len(duplicates_df)
 total = len(results_df)
@@ -143,21 +161,24 @@ def render_field_check(label: str, internal_val, external_val, diff_label: str, 
 
 
 def render_break_card(row, price_tol, volume_tol, time_tol):
-    with st.expander(f"🚩 {row['trade_id']} — {row['symbol']} — {row['detail']}", expanded=False):
-        if row["price_exceeded"]:
-            render_field_check("Price", row["price_internal"], row["price_external"],
-                                "Difference", row["price_diff_pct"], "the tolerance", price_tol,
-                                row["price_exceeded"], unit="%")
+    # .get() everywhere: a row missing an expected field renders as "—" instead
+    # of crashing the whole page, in case a caller ever hands this a differently
+    # shaped row (an older cached result, a hand-edited upload, etc.).
+    with st.expander(f"🚩 {row.get('trade_id')} — {row.get('symbol')} — {row.get('detail')}", expanded=False):
+        if row.get("price_exceeded"):
+            render_field_check("Price", row.get("price_internal"), row.get("price_external"),
+                                "Difference", row.get("price_diff_pct"), "the tolerance", price_tol,
+                                row.get("price_exceeded"), unit="%")
             st.divider()
-        if row["volume_exceeded"]:
-            render_field_check("Volume", row["volume_internal"], row["volume_external"],
-                                "Difference", row["volume_diff"], "the tolerance", volume_tol,
-                                row["volume_exceeded"], unit=" lots")
+        if row.get("volume_exceeded"):
+            render_field_check("Volume", row.get("volume_internal"), row.get("volume_external"),
+                                "Difference", row.get("volume_diff"), "the tolerance", volume_tol,
+                                row.get("volume_exceeded"), unit=" lots")
             st.divider()
-        if row["time_exceeded"]:
-            render_field_check("Timestamp", row["timestamp_internal"], row["timestamp_external"],
-                                "Gap", row["time_diff_minutes"], "the tolerance", time_tol,
-                                row["time_exceeded"], unit=" min")
+        if row.get("time_exceeded"):
+            render_field_check("Timestamp", row.get("timestamp_internal"), row.get("timestamp_external"),
+                                "Gap", row.get("time_diff_minutes"), "the tolerance", time_tol,
+                                row.get("time_exceeded"), unit=" min")
         st.caption(
             "Reasoning: every field is compared independently against its own tolerance. "
             "A field only turns red when the internal and Prime Broker values disagree by more "
@@ -167,27 +188,28 @@ def render_break_card(row, price_tol, volume_tol, time_tol):
 
 
 def render_missing_card(row):
-    if row["status"] == "missing_external":
+    status = row.get("status")
+    if status == "missing_external":
         headline = "Present in the internal blotter — never reported by the Prime Broker"
         left_label, right_label = "Internal (recorded)", "Prime Broker (absent)"
     else:
         headline = "Reported by the Prime Broker — not in the internal blotter"
         left_label, right_label = "Internal (absent)", "Prime Broker (recorded)"
 
-    with st.expander(f"🚩 {row['trade_id']} — {row['symbol']} — {headline}", expanded=False):
+    with st.expander(f"🚩 {row.get('trade_id')} — {row.get('symbol')} — {headline}", expanded=False):
         c1, c2 = st.columns(2)
-        if row["status"] == "missing_external":
+        if status == "missing_external":
             c1.markdown(f"**{left_label}**\n\n"
-                        f"Price: {_fmt(row['price_internal'])}\n\n"
-                        f"Volume: {_fmt(row['volume_internal'])}\n\n"
-                        f"Time: {_fmt(row['timestamp_internal'])}")
+                        f"Price: {_fmt(row.get('price_internal'))}\n\n"
+                        f"Volume: {_fmt(row.get('volume_internal'))}\n\n"
+                        f"Time: {_fmt(row.get('timestamp_internal'))}")
             c2.markdown(f"**{right_label}**\n\n🔴 No matching record found")
         else:
             c1.markdown(f"**{left_label}**\n\n🔴 No matching record found")
             c2.markdown(f"**{right_label}**\n\n"
-                        f"Price: {_fmt(row['price_external'])}\n\n"
-                        f"Volume: {_fmt(row['volume_external'])}\n\n"
-                        f"Time: {_fmt(row['timestamp_external'])}")
+                        f"Price: {_fmt(row.get('price_external'))}\n\n"
+                        f"Volume: {_fmt(row.get('volume_external'))}\n\n"
+                        f"Time: {_fmt(row.get('timestamp_external'))}")
         st.caption(
             "Reasoning: this trade_id only appears on one side after matching by ID, so there is "
             "nothing to compare field-by-field — the discrepancy itself *is* the missing record, "
@@ -241,8 +263,8 @@ with tab_dup:
         st.success("No duplicate entries detected.")
     else:
         for _, row in duplicates_df.iterrows():
-            with st.expander(f"🚩 {row['trade_id']} — reported {row['occurrences']}x in {row['source']}", expanded=False):
-                st.markdown(row["detail"])
+            with st.expander(f"🚩 {row.get('trade_id')} — reported {row.get('occurrences')}x in {row.get('source')}", expanded=False):
+                st.markdown(str(row.get("detail")))
                 st.caption(
                     "Reasoning: the same trade_id appears more than once on one side only — the "
                     "other side reports it exactly once, which is what tells us this is a repeated "
