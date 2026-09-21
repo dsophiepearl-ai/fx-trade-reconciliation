@@ -2,7 +2,7 @@
 
 I built this to demonstrate one of the most literal responsibilities named in forex Risk Analyst and Trading Operations job postings: "reconcile client funding and liaise with Prime Brokers," and "reconciliation, reporting & analytics." It's a working simulation of the daily check a brokerage runs to confirm its own trade records agree with what the Prime Broker reports.
 
-**Live demo:** _add your link here once deployed — see "Seeing it run" below_
+**Live demo:** https://fx-trade-reconciliation-7szvccrdwkpsdxkjtpbafa.streamlit.app/ — see "Seeing it run" below_
 
 It runs as an interactive dashboard: generate a fresh set of sample trades (or upload your own two files), adjust the matching tolerances, and see the results as live metrics and a chart. The part that matters most, though, is how each discrepancy is shown: every break or missing trade is its own flagged card, expandable to the actual internal value vs. the Prime Broker value, the computed difference, and the tolerance it failed against — the same field-by-field reasoning an ops analyst would use to decide whether something is a real break or just normal noise between two systems. The same data is also available as an Excel report, downloadable at the bottom.
 
