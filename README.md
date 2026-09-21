@@ -1,25 +1,44 @@
 # FX Trade Reconciliation Engine
 
-Matches an internal trade blotter against a Prime Broker statement and flags every discrepancy — the same daily check run at a real brokerage.
+I built this to demonstrate one of the most literal responsibilities named in forex Risk Analyst and Trading Operations job postings: "reconcile client funding and liaise with Prime Brokers," and "reconciliation, reporting & analytics." It's a working simulation of the daily check a brokerage runs to confirm its own trade records agree with what the Prime Broker reports.
 
-## Features
+## The problem this solves
 
-- Matches trades by trade ID, symbol, price, volume, and timestamp
-- Flags missing trades, price breaks, volume breaks, timing breaks, and duplicate entries
-- Configurable tolerances (price %, volume, timing window) via command-line flags
-- Outputs a color-coded Excel report: Summary, Trade Detail, Duplicates
+A brokerage keeps its own internal log of every trade it executes — the trade blotter. The Prime Broker it trades through keeps its own separate record of the same activity. In theory these should match perfectly; in practice, timing lags, feed errors, and manual adjustments mean they occasionally don't. If a mismatch goes unnoticed, it can mean the firm is carrying risk it doesn't know about, or that client money isn't properly accounted for. Catching and resolving these breaks — every single trading day — is a core part of a risk or operations desk's job.
 
-## Skills demonstrated
+## How it works
 
-| Skill | Where |
+I designed the reconciliation to follow the same sequence a real desk uses:
+
+1. **Extract** — pull the internal blotter and the Prime Broker statement for the same time window
+2. **Normalize** — align time zones, symbol naming, and volume conventions between the two files, since two systems rarely format things identically
+3. **Match** — pair trades on a shared identifier, then compare price, volume, and timestamp
+4. **Flag** — anything that doesn't line up gets classified into a specific break type, not just a generic "mismatch"
+5. **Report** — the results are written out as a formatted Excel file, the same kind of output that would go to a risk team for a daily handover
+
+I used configurable tolerances rather than exact matching, because real trade records are almost never byte-identical between two systems — a price difference of a fraction of a percent, or a timestamp a couple of minutes apart, is normal and shouldn't be treated the same as a genuine error.
+
+## What it catches
+
+| Break type | What it means |
 |---|---|
-| Python (pandas data manipulation) | `src/reconcile.py` |
-| Rule-based matching & tolerance-based comparison logic | `reconcile()` in `src/reconcile.py` |
-| Excel report generation & conditional formatting (openpyxl) | `src/report.py` |
-| Synthetic test data generation with reproducible seeded breaks | `src/generate_sample_data.py` |
-| Unit testing | `tests/test_reconcile.py` — 9 tests |
-| CLI tooling (argparse) | `main.py` |
-| Version control | git repo |
+| Missing external | The trade is in my internal blotter but the Prime Broker never reported it |
+| Missing internal | The Prime Broker reported a trade I don't have on my side |
+| Price break | Same trade, but the fill price differs beyond tolerance |
+| Volume break | Same trade, but the size differs beyond tolerance |
+| Timing break | Same trade, but the timestamps are further apart than expected |
+| Duplicate entry | The same trade ID was reported more than once on either side |
+
+## Skills this project demonstrates
+
+| Skill | Where it shows up |
+|---|---|
+| Python (pandas for data matching and comparison) | `src/reconcile.py` |
+| Rule-based, tolerance-driven matching logic | `reconcile()` in `src/reconcile.py` |
+| Excel report generation with conditional formatting (openpyxl) | `src/report.py` |
+| Designing reproducible test data with deliberate, known-answer breaks | `src/generate_sample_data.py` |
+| Unit testing | `tests/test_reconcile.py` — 9 tests, all passing |
+| Command-line tooling (argparse) | `main.py` |
 
 ## Tech stack
 
@@ -29,10 +48,10 @@ Python 3, pandas, openpyxl
 
 ```
 fx-trade-reconciliation/
-  main.py                       # CLI entry point
+  main.py                       # command-line entry point
   src/
-    generate_sample_data.py     # builds sample CSVs, with breaks deliberately injected
-    reconcile.py                 # matching and classification logic
+    generate_sample_data.py     # builds sample data, with breaks deliberately injected
+    reconcile.py                 # the matching and classification logic
     report.py                    # builds the color-coded Excel report
   data/
     internal_blotter.csv         # generated
@@ -42,18 +61,11 @@ fx-trade-reconciliation/
   requirements.txt
 ```
 
-## What it checks
+## Seeing it run
 
-| Break type | What it means |
-|---|---|
-| Missing external | Present in the internal blotter, not in the Prime Broker statement |
-| Missing internal | Present in the Prime Broker statement, not in the internal blotter |
-| Price break | Same trade, fill price differs beyond tolerance |
-| Volume break | Same trade, size differs beyond tolerance |
-| Timing break | Same trade, timestamps differ beyond tolerance |
-| Duplicate entry | Same trade ID reported more than once on either side |
+Real Prime Broker data isn't something I have access to for a portfolio project, so I wrote a generator that builds a reproducible pair of files with specific breaks planted in them — that way both the tool and the test suite have a known answer to check against, the same way you'd validate any reconciliation logic before trusting it with real data.
 
-## Run it yourself
+If you'd like to see it for yourself:
 
 ```bash
 git clone https://github.com/dsophiepearl-ai/fx-trade-reconciliation.git
@@ -63,23 +75,16 @@ python src/generate_sample_data.py
 python main.py
 ```
 
-Produces `reconciliation_report.xlsx` in the project folder — open it in Excel to see the color-coded results (green = matched, red = missing, amber = break).
-
-Custom tolerances:
+This produces `reconciliation_report.xlsx` — open it in Excel to see the color-coded output (green for matched, red for missing, amber for a break). The tolerances are adjustable from the command line, for example:
 
 ```bash
 python main.py --price-tolerance-pct 0.05 --volume-tolerance 0.01 --time-tolerance-minutes 10
 ```
 
-## Test
+## Testing it
 
 ```bash
 pytest
 ```
 
-9/9 tests pass — each one builds a small two-row fixture with a known, deliberate discrepancy (a price 1.5% off, a timestamp 45 minutes apart, and so on) and checks it gets classified correctly.
-
-## Design notes
-
-- Real trade records are rarely byte-identical between two systems (rounding, feed timing, etc.), so matching uses configurable tolerances rather than exact equality — this mirrors how reconciliation actually works at a brokerage.
-- Real Prime Broker data isn't available for a portfolio project, so `generate_sample_data.py` builds a reproducible synthetic pair of files with specific breaks injected, giving both the CLI and the test suite known-answer data to check against.
+All 9 tests pass. Each one sets up a small, deliberate discrepancy — a price 1.5% off, a timestamp 45 minutes apart, a duplicate trade ID — and checks that the engine classifies it correctly. That's the same logic that runs against the full sample dataset.
